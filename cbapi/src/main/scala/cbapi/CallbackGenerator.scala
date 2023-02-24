@@ -6,7 +6,7 @@ import scala.concurrent.Future
 object CustomCallbackGenerator {
   def repeatA(name: String, callback: ((Int, String)) => Unit) = {
     def looper() = {
-      Range.inclusive(1, 2).foreach { i =>
+      Range.inclusive(1, 5).foreach { i =>
         callback((i, s"$name: $i"))
       }
     }
@@ -15,7 +15,7 @@ object CustomCallbackGenerator {
 
   def repeatB(name: String, key: Int, callback: ((Int, String)) => Unit) = {
     def looper() = {
-      Range.inclusive(1, 1).foreach { a =>
+      Range.inclusive(1, 2).foreach { a =>
         callback((key, s"$name (data point $a): ${(key*10)+a.toDouble}"))
       }
     }
