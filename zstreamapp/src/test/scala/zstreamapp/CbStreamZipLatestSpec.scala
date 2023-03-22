@@ -23,7 +23,7 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
 
   def spec =
     suite("ZStream.async flatMap Spec")(
-      test("full overlap zip latest test with stream b from ZStream.fromIterable") {
+      test("full overlap zipLatest test with stream b from ZStream.fromIterable") {
         log.info("running test 1")
         val subscriptionManagerTask: Task[SubscriptionManager] = apiSubscriptionManager
         val streamA = for {
@@ -31,11 +31,11 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
           itemA <- subscriptionManager.subscribeToApiChannelA(1000, "location")
         } yield itemA
         val combined = streamA
-          .tap(a => ZIO.succeed(log.info(s"tapA: $a")))
+          .tap(a => ZIO.succeed(log.info(s"tap1A: $a")))
           .take(2)
-          .zipLatest(streamB(1).tap(a => ZIO.succeed(log.info(s"tapB: $a"))))
+          .zipLatest(streamB(1).tap(a => ZIO.succeed(log.info(s"tap1B: $a"))))
         for {
-          fibre <- combined.tap(a => ZIO.succeed(log.info(s"tapZip: $a"))).runCollect.fork
+          fibre <- combined.tap(a => ZIO.succeed(log.info(s"tap1Zip: $a"))).runCollect.fork
           data <- fibre.await
         } yield assertTrue {
           data.toEither.toOption.get == Chunk(
@@ -45,7 +45,7 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
         }
       },
 
-      test ("full overlap zip latest test with stream b from ZStream.async") {
+      test ("full overlap zipLatest test with stream b from ZStream.async") {
         log.info("running test 2")
         val subscriptionManagerTask: Task[SubscriptionManager] = apiSubscriptionManager
         val streamA: ZStream[Any, Throwable, (Int, String)] = for {
@@ -57,13 +57,13 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
           itemB <- subscriptionManager.subscribeToApiChannelB("temperature", 1)
         } yield itemB
         val combined = streamA
-          .tap(a => ZIO.succeed(log.info(s"tapA: $a")))
+          .tap(a => ZIO.succeed(log.info(s"tap2A: $a")))
           .take(2)
           .zipLatest(streamBAsync
-            .tap(a => ZIO.succeed(log.info(s"tapB: $a")))
+            .tap(a => ZIO.succeed(log.info(s"tap2B: $a")))
             .take(3))
         for {
-          fibre <- combined.tap(a => ZIO.succeed(log.info(s"tapZip: $a"))).runCollect.fork
+          fibre <- combined.tap(a => ZIO.succeed(log.info(s"tap2Zip: $a"))).runCollect.fork
           data <- fibre.await
         } yield assertTrue {
           data.toEither.toOption.get == Chunk(
@@ -71,6 +71,36 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
             (1, "location: 1", (1, "temperature (data point 2): 12.0")),
             (1, "location: 1", (1, "temperature (data point 3): 13.0")),
             (2, "location: 2", (1, "temperature (data point 3): 13.0")))
+        }
+      },
+
+      test("full overlap zipLatest and dropWhile test with stream b from ZStream.async") {
+        log.info("running test 3")
+        val subscriptionManagerTask: Task[SubscriptionManager] = apiSubscriptionManager
+        val streamA: ZStream[Any, Throwable, (Int, String)] = for {
+          subscriptionManager <- ZStream.fromZIO(subscriptionManagerTask)
+          itemA <- subscriptionManager.subscribeToApiChannelA(1000, "location")
+        } yield itemA
+        val streamBAsync: ZStream[Any, Throwable, (Int, String)] = for {
+          subscriptionManager <- ZStream.fromZIO(subscriptionManagerTask)
+          itemB <- subscriptionManager.subscribeToApiChannelB("temperature", 1)
+        } yield itemB
+        val combined = streamA
+          .tap(a => ZIO.succeed(log.info(s"tap3A: $a")))
+          .dropWhile(_._1 < 4)
+          .take(2)
+          .zipLatest(streamBAsync
+            .tap(a => ZIO.succeed(log.info(s"tap3B: $a")))
+            .take(3))
+        for {
+          fibre <- combined.tap(a => ZIO.succeed(log.info(s"tap3Zip: $a"))).runCollect.fork
+          data <- fibre.await
+        } yield assertTrue {
+          data.toEither.toOption.get == Chunk(
+            (4, "location: 4", (1, "temperature (data point 1): 11.0")),
+            (4, "location: 4", (1, "temperature (data point 2): 12.0")),
+            (4, "location: 4", (1, "temperature (data point 3): 13.0")),
+            (5, "location: 5", (1, "temperature (data point 3): 13.0")))
         }
       }
     )
