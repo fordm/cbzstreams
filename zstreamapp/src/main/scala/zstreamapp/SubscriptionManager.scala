@@ -6,8 +6,8 @@ import zio.stream.ZStream
 
 case class SubscriptionManager(cbApi: CbApi) {
 
-  def subscribeToApiChannelA(name: String): ZStream[Any, Throwable, Item] = {
-    val subscribeFn = cbApi.subscribeToA _
+  def subscribeToApiChannelA(delay: Long, name: String): ZStream[Any, Throwable, Item] = {
+    val subscribeFn = cbApi.subscribeToA(delay, _)
     val stream = ZStreamAllSubscriber.stream(name, subscribeFn)
     stream
   }

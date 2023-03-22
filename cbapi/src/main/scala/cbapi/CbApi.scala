@@ -9,8 +9,8 @@ import scala.concurrent.Future
 class CbApi {
   implicit val log = Logger(this.getClass)
 
-  def subscribeToA(subscriber: Subscriber): Unit = {
-    CustomCallbackGenerator.repeatA("location", subscriber.onItem)
+  def subscribeToA(delay: Long, subscriber: Subscriber): Unit = {
+    CustomCallbackGenerator.repeatA(delay, "location", subscriber.onItem)
   }
 
   def subscribeToB(key: Int, subscriber: Subscriber): Unit = {

@@ -28,8 +28,9 @@ object ZStreamAllSubscriber {
     log.debug(s"registering $name callback")
     ZIO.attempt {
       val subscriber = new ZStreamAllSubscriber(name, onUpdate, onError)
+      log.debug(s"registering and starting callback $name")
       subscribe(subscriber)
-      log.debug(s"registered $name callback")
+      log.debug(s"registered and started callback $name")
     }
   }
 

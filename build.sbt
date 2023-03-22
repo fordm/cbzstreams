@@ -9,7 +9,7 @@ ThisBuild / scalaVersion := scala213
 
 val catsVersion = "2.8.0"
 val scalaTestVersion = "3.2.14"
-val zioVersion = "2.0.9"
+val zioVersion = "2.0.10"
 
 /*lazy val testDeps = Seq(
   "org.scalatest"   %% "scalatest"  % scalaTestVersion % Test,
