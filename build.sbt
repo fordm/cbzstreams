@@ -7,16 +7,16 @@ ThisBuild / organization := "name.michaelford"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := scala213
 
-val catsVersion = "2.8.0"
+val catsVersion = "2.9.0"
 val scalaTestVersion = "3.2.14"
-val zioVersion = "2.0.10"
+val zioVersion = "2.0.12"
 
-/*lazy val testDeps = Seq(
+lazy val testDeps = Seq(
   "org.scalatest"   %% "scalatest"  % scalaTestVersion % Test,
   "org.scalatest" %% "scalatest-freespec" % scalaTestVersion % Test,
   "org.scalatest" %% "scalatest-propspec" % scalaTestVersion % Test,
   "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0" % Test,
-)*/
+)
 
 lazy val zioDeps = Seq(
   "dev.zio" %% "zio" % zioVersion,
@@ -24,6 +24,10 @@ lazy val zioDeps = Seq(
   "dev.zio" %% "zio-test" % zioVersion,
   "dev.zio" %% "zio-test-sbt" % zioVersion
 )
+lazy val zioLoggingWithLogback = Seq(
+  "dev.zio" %% "zio-logging",
+  "dev.zio" %% "zio-logging-slf4j"
+).map(_ % "2.1.10")
 
 libraryDependencies in Global ++= Seq(
   "org.typelevel" %% "cats-core" % "2.9.0",
@@ -44,12 +48,27 @@ lazy val cbapi = project.in(file("cbapi"))
     crossScalaVersions := supportedScalaVersions
   )
 
+lazy val datamodel = project.in(file("datamodel"))
+  .settings(
+    crossScalaVersions := supportedScalaVersions
+  )
+  .settings(
+    libraryDependencies ++=
+      testDeps ++ {
+      if (scalaVersion.value == scala3)
+        Seq.empty
+      else
+        Seq("com.chuusai" %% "shapeless" % "2.3.10")
+    }
+  )
+
 lazy val zstreamapp = project.in(file("zstreamapp"))
   .dependsOn(cbapi)
   .settings(
     crossScalaVersions := supportedScalaVersions
   )
   .settings(libraryDependencies ++=
-    zioDeps
+    zioDeps ++
+      zioLoggingWithLogback
   )
 

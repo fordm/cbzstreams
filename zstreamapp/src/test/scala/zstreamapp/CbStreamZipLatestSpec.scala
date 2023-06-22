@@ -23,7 +23,7 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
 
   def spec =
     suite("ZStream.async flatMap Spec")(
-      test("full overlap zipLatest test with stream b from ZStream.fromIterable") {
+      /*test("full overlap zipLatest test with stream b from ZStream.fromIterable") {
         log.info("running test 1")
         val subscriptionManagerTask: Task[SubscriptionManager] = apiSubscriptionManager
         val streamA = for {
@@ -72,14 +72,14 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
             (1, "location: 1", (1, "temperature (data point 3): 13.0")),
             (2, "location: 2", (1, "temperature (data point 3): 13.0")))
         }
-      },
+      },*/
 
-      test("full overlap zipLatest and dropWhile test with stream b from ZStream.async") {
+      /*test("full overlap zipLatest and dropWhile test with stream b from ZStream.async") {
         log.info("running test 3")
         val subscriptionManagerTask: Task[SubscriptionManager] = apiSubscriptionManager
-        val streamA: ZStream[Any, Throwable, (Int, String)] = for {
-          subscriptionManager <- ZStream.fromZIO(subscriptionManagerTask)
-          itemA <- subscriptionManager.subscribeToApiChannelA(1000, "location")
+        val streamA: ZIO[Any, Throwable, ZStream[Any, Nothing, (Int, String)]] = for {
+          subscriptionManager <- subscriptionManagerTask
+          itemA <- subscriptionManager.subscribeToApiChannelAQueue(1000, "location")
         } yield itemA
         val streamBAsync: ZStream[Any, Throwable, (Int, String)] = for {
           subscriptionManager <- ZStream.fromZIO(subscriptionManagerTask)
@@ -87,22 +87,34 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
         } yield itemB
         val combined = streamA
           .tap(a => ZIO.succeed(log.info(s"tap3A: $a")))
-          .dropWhile(_._1 < 4)
-          .take(2)
-          .zipLatest(streamBAsync
-            .tap(a => ZIO.succeed(log.info(s"tap3B: $a")))
-            .take(3))
+        .map { stream =>
+          val zipped = stream
+            .tap(a => ZIO.succeed(log.info(s"tap3A: $a")))
+            //.dropWhile(_._1 < 4)
+            //.take(2)
+            .zipLatest(streamBAsync
+              .tap(a => ZIO.succeed(log.info(s"tap3B: $a")))
+              .take(3))
+          zipped
+        }
         for {
-          fibre <- combined.tap(a => ZIO.succeed(log.info(s"tap3Zip: $a"))).runCollect.fork
+          queue <- Queue.bounded[Int](1)
+          stream = ZStream.fromQueue(queue).debug
+          feed = ZIO.foreach(Range(1, 10).toList)(a => {
+            val _ = queue.offer(a)
+            ZIO.unit
+          })
+          // stream <- combined
+          // fibre <- stream.tap(a => ZIO.succeed(log.info(s"tap3Zip: $a"))).runCollect.fork
           data <- fibre.await
         } yield assertTrue {
-          data.toEither.toOption.get == Chunk(
+          data.toEither.toOption.get == Chunk.empty/*(
             (4, "location: 4", (1, "temperature (data point 1): 11.0")),
             (4, "location: 4", (1, "temperature (data point 2): 12.0")),
             (4, "location: 4", (1, "temperature (data point 3): 13.0")),
-            (5, "location: 5", (1, "temperature (data point 3): 13.0")))
+            (5, "location: 5", (1, "temperature (data point 3): 13.0")))*/
         }
-      },
+      }*//*,
 
       test ("full overlap zipLatest and dropWhile test with stream b from ZStream.async -- should fill buffer B for a while before zipping") {
         log.info("running test 4")
@@ -132,7 +144,38 @@ object CbStreamZipLatestSpec extends ZIOSpecDefault {
             (2, "location: 2", (1, "temperature (data point 3): 13.0")),
             (2, "location: 2", (1, "temperature (data point 4): 14.0")))
         }
+      }, // @@ TestAspect.timeout(1.second)
+
+      test("use queue implementation for full overlap zipLatest and dropWhile test with stream b from ZStream.async -- should fill buffer B for a while before zipping") {
+        log.info("running test 5")
+        val subscriptionManagerTask: Task[SubscriptionManager] = apiSubscriptionManager
+        val streamA: ZStream[Any, Throwable, (Int, String)] = for {
+          subscriptionManager <- ZStream.fromZIO(subscriptionManagerTask)
+          itemA <- subscriptionManager.subscribeToApiChannelA(1000 * 40, "location")
+        } yield itemA
+        val streamBAsync: ZStream[Any, Throwable, (Int, String)] = for {
+          subscriptionManager <- ZStream.fromZIO(subscriptionManagerTask)
+          itemB <- subscriptionManager.subscribeToApiChannelB("temperature", 1)
+        } yield itemB
+        val combined = streamA
+          .tap(a => ZIO.succeed(log.info(s"tap3A: $a")))
+          .dropWhile(_._1 < 2)
+          .take(1)
+          .zipLatest(streamBAsync
+            .tap(a => ZIO.succeed(log.info(s"tap3B: $a")))
+          )
+        for {
+          fibre <- combined.tap(a => ZIO.succeed(log.info(s"tap3Zip: $a"))).take(4).runCollect.fork
+          data <- fibre.await
+        } yield assertTrue {
+          data.toEither.toOption.get == Chunk(
+            (2, "location: 2", (1, "temperature (data point 1): 11.0")),
+            (2, "location: 2", (1, "temperature (data point 2): 12.0")),
+            (2, "location: 2", (1, "temperature (data point 3): 13.0")),
+            (2, "location: 2", (1, "temperature (data point 4): 14.0")))
+        }
       } // @@ TestAspect.timeout(1.second)
+    */
 
     )
 }

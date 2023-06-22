@@ -3,8 +3,8 @@ package zstreamapp
 import cbapi.CbApi
 import cbapi.CbApi.Item
 import com.typesafe.scalalogging.Logger
+import zio._
 import zio.stream.ZStream
-import zio.{Chunk, Task, ZIO}
 
 import scala.util.Try
 
@@ -17,7 +17,10 @@ class ZStreamAllSubscriber(name: String,
     Try {
       log.info(s"onItem $name: $item")
       item
-    }.fold(onError, onUpdate)
+    }.fold(onError, (item: Item) => {
+      log.debug(s"passing $item to onUpdate")
+      onUpdate(item)
+    })
   }
 }
 
@@ -43,6 +46,48 @@ object ZStreamAllSubscriber {
         error => cb(ZIO.fail(error).mapError(Some(_)))
       )
 
+  def registerQueue(name: String, subscribe: CbApi.Subscriber => Unit, queue: Queue[Item]): Task[Unit] =
+    registerCallback(
+      name,
+      subscribe,
+      event => {
+        log.debug(s"offering $event to queue...")
+        val _ = Unsafe.unsafe { implicit unsafe =>
+          log.debug(s"offering $event to queue (inner)...")
+          val exit = Runtime.default.unsafe.run(
+            for {
+              _ <- ZIO.succeed({
+                log.debug(s"offering $event to queue (inner 2)...")
+                for {
+                  queued <- queue.offer(event)
+                  _ = log.debug(s"...offered $event to queue (inner 2) result=$queued")
+                } yield ()
+              }).fork
+            } yield ())
+          exit.foldExit(_ => log.error("failed"), _ => log.info("success"))
+          log.debug(s"...offered $event to queue (inner)")
+        }
+        log.debug(s"...offered $event to queue")
+      },
+      error => log.error(s"$error")
+    )
+
   def stream(name: String, subscribe: CbApi.Subscriber => Unit): ZStream[Any, Throwable, Item] =
     ZStream.asyncZIO((register(name, subscribe)))
+
+  def streamFromQueue0(name: String, subscribe: CbApi.Subscriber => Unit): ZStream[Any, Throwable, Item] = {
+    val queue: ZIO[Any, Throwable, Queue[(Int, String)]] = for {
+      q <- Queue.unbounded[Item]
+      _ <- registerQueue(name, subscribe, q)
+    } yield q
+    ZStream.fromZIO(queue).flatMap(a => ZStream.fromQueue(a))
+  }
+
+  def streamFromQueue1(name: String, subscribe: CbApi.Subscriber => Unit): ZIO[Any, Throwable, ZStream[Any, Nothing, Item]] = {
+    for {
+      q <- Queue.bounded[Item](100)
+      stream = ZStream.fromQueue(q, 1).debug("FROM QUEUE: ")
+      _ <- registerQueue(name, subscribe, q)
+    } yield stream
+  }
 }
